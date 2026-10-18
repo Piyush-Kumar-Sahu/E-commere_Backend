@@ -97,7 +97,7 @@ python manage.py test apps.core
 ### 3. Safe, Configurable Health Check Endpoint
 
 A passive, standards-compliant health-check endpoint is available at multiple paths:
-- **Paths**: `/health/`, `/healthz/`, `/api/v1/health/`
+- **Paths**: `/` (root minimal fast status), `/health/`, `/healthz/`, `/api/v1/health/`
 - **Render Dashboard Configuration**: In the Render Dashboard (Web Service > Settings > Health Check Path), set the path to `/health/` or `/api/v1/health/`. Render uses this during deployments to verify that the service is running before routing production traffic.
 - **Configurable Database Probing**:
   - `GET /api/v1/health/` (default): Checks overall service status and verifies PostgreSQL database connectivity with `SELECT 1`.
