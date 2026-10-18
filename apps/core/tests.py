@@ -213,6 +213,13 @@ class ModiecommersBackendTests(TestCase):
         self.assertNotIn('*', settings.ALLOWED_HOSTS)
 
     def test_health_check_endpoints(self):
+        # 0. Root minimal health check endpoint at '/'
+        root_slash_resp = self.client.get('/')
+        self.assertEqual(root_slash_resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(root_slash_resp.data['status'], 'ok')
+        self.assertEqual(root_slash_resp.data['service'], 'Modiecommers E-commerce API')
+        self.assertEqual(root_slash_resp.data['version'], '1.0.0')
+
         # 1. API health check with database check
         response = self.client.get('/api/v1/health/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)

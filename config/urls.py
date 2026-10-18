@@ -6,6 +6,22 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db import connection
 
+class RootHealthCheckView(APIView):
+    """
+    Minimal health-check endpoint at '/' returning a simple JSON status response.
+    Ensures that GET / returns HTTP 200 without database overhead or changing existing API behavior.
+    """
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        return Response({
+            'status': 'ok',
+            'service': 'Modiecommers E-commerce API',
+            'version': '1.0.0',
+        }, status=200)
+
+
 class HealthCheckView(APIView):
     """
     Safe, configurable health check endpoint.
@@ -48,6 +64,9 @@ class HealthCheckView(APIView):
         }, status=status_code)
 
 urlpatterns = [
+    # Minimal root health check
+    path('', RootHealthCheckView.as_view(), name='root_health'),
+
     # Health checks (aliases for Render health check path, Kubernetes, or uptime monitoring)
     path('health/', HealthCheckView.as_view(), name='health_root'),
     path('healthz/', HealthCheckView.as_view(), name='healthz'),
