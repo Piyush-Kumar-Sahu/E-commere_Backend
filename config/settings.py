@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+import dj_database_url
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -74,23 +75,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# Database Configuration (PostgreSQL by default with environment variable overrides)
-db_engine = os.getenv('DB_ENGINE', 'django.db.backends.postgresql')
-db_name = os.getenv('DB_NAME', 'modiecommers')
-db_user = os.getenv('DB_USER', 'postgres')
-db_password = os.getenv('DB_PASSWORD', '')
-db_host = os.getenv('DB_HOST', '127.0.0.1')
-db_port = os.getenv('DB_PORT', '5432')
+# Database Configuration (Supabase PostgreSQL via DATABASE_URL with SSL)
+DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is not configured. Please supply a valid Supabase PostgreSQL connection URL in .env.")
 
 DATABASES = {
-    'default': {
-        'ENGINE': db_engine,
-        'NAME': db_name,
-        'USER': db_user,
-        'PASSWORD': db_password,
-        'HOST': db_host,
-        'PORT': db_port,
-    }
+    'default': dj_database_url.parse(
+        DATABASE_URL,
+        conn_max_age=600,
+        conn_health_checks=True,
+        ssl_require=True,
+    )
 }
 
 # Custom User Model

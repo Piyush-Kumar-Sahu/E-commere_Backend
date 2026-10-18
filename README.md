@@ -25,7 +25,7 @@ Django REST Framework backend for **Modiecommers**, a luxury fine jewellery and 
 ### 1. Prerequisites
 
 - Python 3.11+
-- PostgreSQL server (14+)
+- Supabase PostgreSQL instance (or PostgreSQL 14+)
 
 ### 2. Environment Setup
 
@@ -52,7 +52,7 @@ Copy the sample environment file and configure your credentials:
 cp .env.example .env
 ```
 
-Configure your PostgreSQL database parameters and SMTP settings in `.env`.
+Configure your Supabase `DATABASE_URL` (with SSL) and SMTP settings in `.env`.
 
 ### 4. Database Migrations & Initial Data
 
