@@ -77,5 +77,41 @@ The API will be available at `http://127.0.0.1:8000/api/v1/`.
 Execute the automated test suite:
 
 ```bash
-python manage.py test apps.accounts
+python manage.py test apps.core
 ```
+
+## Production Deployment & Render Configuration
+
+### 1. Allowed Hosts & Debug Safeguards
+
+- **ALLOWED_HOSTS**: The production domain `e-commere-backend.onrender.com` is configured in `DEFAULT_ALLOWED_HOSTS`, alongside local development addresses (`localhost`, `127.0.0.1`, `0.0.0.0`, `[::1]`, and `testserver`). Any dynamic host set in `RENDER_EXTERNAL_HOSTNAME` is automatically appended. Wildcard hosts (`*`) are strictly blocked.
+- **Production `DEBUG=False`**: The application automatically detects production environments via Render system variables (`RENDER=true`, `RENDER_EXTERNAL_HOSTNAME`) and `ENVIRONMENT=production`, strictly enforcing `DEBUG=False`. In local development, `DEBUG` defaults to `True`.
+- **CSRF Protection**: `https://e-commere-backend.onrender.com` is automatically registered under `CSRF_TRUSTED_ORIGINS` to ensure authenticated administrative operations function correctly on Render.
+
+### 2. Render Free-Tier Sleep Behavior & Compliance
+
+- **15-Minute Inactivity Sleep**: Render's free web service tier spins down (puts to sleep) services after 15 minutes without incoming HTTP traffic.
+- **Cold-Start Latency**: When a sleeping service receives an incoming request, Render spins up the container. This cold start typically introduces a 30–50 second delay on the initial request.
+- **Strict Compliance Notice**: Do **not** employ automated external keep-alive pingers (such as UptimeRobot, cron-job.org, or Pingdom) or internal self-pinging loops to artificially prevent free-tier instances from sleeping. Doing so violates Render's Terms of Service and Acceptable Use Policy and can result in account suspension.
+
+### 3. Safe, Configurable Health Check Endpoint
+
+A passive, standards-compliant health-check endpoint is available at multiple paths:
+- **Paths**: `/health/`, `/healthz/`, `/api/v1/health/`
+- **Render Dashboard Configuration**: In the Render Dashboard (Web Service > Settings > Health Check Path), set the path to `/health/` or `/api/v1/health/`. Render uses this during deployments to verify that the service is running before routing production traffic.
+- **Configurable Database Probing**:
+  - `GET /api/v1/health/` (default): Checks overall service status and verifies PostgreSQL database connectivity with `SELECT 1`.
+  - `GET /api/v1/health/?check_db=false`: Lightweight liveness check that skips database queries to avoid exhausting database connection pools during frequent load balancer checks.
+  - Setting `HEALTH_CHECK_INCLUDE_DB=False` in environment variables disables database checks by default.
+
+### 4. Options for Keeping the Backend Responsive
+
+To eliminate or manage the cold-start delay:
+
+1. **Eligible Paid Hosting Plan (Recommended for Continuous Availability)**:
+   - Upgrade the Render Web Service to a paid instance (e.g., the **Starter** plan at $7/month or higher).
+   - Paid instances **never spin down or sleep**, have dedicated CPU and memory, provide zero cold-start latency, and support persistent background workers.
+2. **Graceful Frontend Cold-Start Handling (Free Tier)**:
+   - Configure the frontend application (Vite/React) to detect initial connection delays or 502/504 gateway states and display a user-friendly status banner:
+     *"The server is waking up from sleep mode (Render free tier). Please allow ~30–45 seconds for initial connection..."*
+   - Implement an automated retry mechanism with exponential backoff on initial API calls.
