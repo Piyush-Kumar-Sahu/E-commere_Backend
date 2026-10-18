@@ -197,3 +197,41 @@ class ModiecommersBackendTests(TestCase):
         admin_response = self.client.get('/api/v1/admin-ops/dashboard/stats/')
         self.assertEqual(admin_response.status_code, status.HTTP_200_OK)
         self.assertTrue(admin_response.data['success'])
+
+    def test_allowed_hosts_and_debug_production_safeguards(self):
+        from django.conf import settings
+
+        # 1. Verify e-commere-backend.onrender.com is present in ALLOWED_HOSTS
+        self.assertIn('e-commere-backend.onrender.com', settings.ALLOWED_HOSTS)
+
+        # 2. Verify local development hosts are preserved
+        self.assertIn('localhost', settings.ALLOWED_HOSTS)
+        self.assertIn('127.0.0.1', settings.ALLOWED_HOSTS)
+        self.assertIn('testserver', settings.ALLOWED_HOSTS)
+
+        # 3. Verify wildcard '*' is strictly forbidden
+        self.assertNotIn('*', settings.ALLOWED_HOSTS)
+
+    def test_health_check_endpoints(self):
+        # 1. API health check with database check
+        response = self.client.get('/api/v1/health/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['status'], 'ok')
+        self.assertEqual(response.data['service'], 'Modiecommers E-commerce API')
+        self.assertEqual(response.data['database'], 'connected (PostgreSQL)')
+
+        # 2. Root /health/ alias (Render health check path)
+        root_resp = self.client.get('/health/')
+        self.assertEqual(root_resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(root_resp.data['status'], 'ok')
+
+        # 3. Root /healthz/ alias
+        healthz_resp = self.client.get('/healthz/')
+        self.assertEqual(healthz_resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(healthz_resp.data['status'], 'ok')
+
+        # 4. Configurable check_db=false liveness probe
+        fast_resp = self.client.get('/api/v1/health/?check_db=false')
+        self.assertEqual(fast_resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(fast_resp.data['status'], 'ok')
+        self.assertEqual(fast_resp.data['database'], 'skipped')

@@ -11,12 +11,50 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'modiecommers-insecure-key-for-development-only-change-me')
-DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-allowed_hosts_raw = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver')
-ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_raw.split(',') if h.strip()]
-if 'testserver' not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append('testserver')
+# Environment and Debug Mode Configuration
+# Production is detected via Render platform variables or explicit environment configuration.
+IS_RENDER = os.getenv('RENDER') == 'true' or bool(os.getenv('RENDER_EXTERNAL_HOSTNAME'))
+IS_PRODUCTION = (
+    IS_RENDER or
+    os.getenv('ENVIRONMENT', '').strip().lower() in ('production', 'prod') or
+    os.getenv('DJANGO_ENV', '').strip().lower() in ('production', 'prod')
+)
+
+# In production, DEBUG must always be False for security.
+# In local development, DJANGO_DEBUG defaults to True unless explicitly disabled.
+if IS_PRODUCTION:
+    DEBUG = False
+else:
+    DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
+
+# Allowed Hosts Configuration
+# Local development hosts, test runner, and the production Render domain are preserved.
+# Additional hosts can be supplied via the DJANGO_ALLOWED_HOSTS environment variable.
+DEFAULT_ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '0.0.0.0',
+    '[::1]',
+    'testserver',
+    'e-commere-backend.onrender.com',
+]
+
+render_external_hostname = os.getenv('RENDER_EXTERNAL_HOSTNAME')
+if render_external_hostname and render_external_hostname not in DEFAULT_ALLOWED_HOSTS:
+    DEFAULT_ALLOWED_HOSTS.append(render_external_hostname)
+
+allowed_hosts_raw = os.getenv('DJANGO_ALLOWED_HOSTS', '')
+parsed_env_hosts = [h.strip() for h in allowed_hosts_raw.split(',') if h.strip()]
+
+# Build safe, deduplicated ALLOWED_HOSTS list while strictly forbidding wildcard '*'
+ALLOWED_HOSTS = []
+for host in DEFAULT_ALLOWED_HOSTS + parsed_env_hosts:
+    if host and host != '*' and host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(host)
+
+# Health check configuration (default True, can be disabled for zero-overhead liveness probes)
+HEALTH_CHECK_INCLUDE_DB = os.getenv('HEALTH_CHECK_INCLUDE_DB', 'True').lower() in ('true', '1', 'yes')
 
 # Application definition
 INSTALLED_APPS = [
@@ -157,8 +195,21 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
 cors_raw = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173')
 CORS_ALLOWED_ORIGINS = [c.strip() for c in cors_raw.split(',') if c.strip()]
 
-csrf_raw = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173')
-CSRF_TRUSTED_ORIGINS = [c.strip() for c in csrf_raw.split(',') if c.strip()]
+default_csrf_trusted = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'https://e-commere-backend.onrender.com',
+]
+if render_external_hostname and f"https://{render_external_hostname}" not in default_csrf_trusted:
+    default_csrf_trusted.append(f"https://{render_external_hostname}")
+
+csrf_raw = os.getenv('CSRF_TRUSTED_ORIGINS', '')
+parsed_csrf_origins = [c.strip() for c in csrf_raw.split(',') if c.strip()]
+
+CSRF_TRUSTED_ORIGINS = []
+for origin in default_csrf_trusted + parsed_csrf_origins:
+    if origin and origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
 
 # Email Configuration (Gmail SMTP with environment variables)
 EMAIL_BACKEND = os.getenv(
