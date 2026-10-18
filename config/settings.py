@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from urllib.parse import urlparse, urlunparse
 import dj_database_url
 from dotenv import load_dotenv
 
@@ -114,14 +115,28 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database Configuration (Supabase PostgreSQL via DATABASE_URL with SSL)
-DATABASE_URL = os.getenv('DATABASE_URL')
-if not DATABASE_URL:
+raw_database_url = os.getenv('DATABASE_URL')
+if not raw_database_url:
     raise ValueError("DATABASE_URL environment variable is not configured. Please supply a valid Supabase PostgreSQL connection URL in .env.")
+
+# Supabase direct endpoints (db.<project-ref>.supabase.co) only resolve to IPv6, which is unreachable on Render's network.
+# If a direct endpoint is supplied, route through the Supabase Session Pooler (port 5432, IPv4 compatible).
+parsed_db = urlparse(raw_database_url)
+if parsed_db.hostname and parsed_db.hostname.startswith('db.') and parsed_db.hostname.endswith('.supabase.co'):
+    ref = parsed_db.hostname.split('.')[1]
+    pooler_host = os.getenv('SUPABASE_POOLER_HOST', 'aws-0-ap-south-1.pooler.supabase.com')
+    user = parsed_db.username or 'postgres'
+    if not user.startswith('postgres.'):
+        user = f"postgres.{ref}"
+    netloc = f"{user}:{parsed_db.password}@{pooler_host}:{parsed_db.port or 5432}"
+    DATABASE_URL = urlunparse((parsed_db.scheme, netloc, parsed_db.path, parsed_db.params, parsed_db.query, parsed_db.fragment))
+else:
+    DATABASE_URL = raw_database_url
 
 DATABASES = {
     'default': dj_database_url.parse(
         DATABASE_URL,
-        conn_max_age=600,
+        conn_max_age=int(os.getenv('DATABASE_CONN_MAX_AGE', '600')),
         conn_health_checks=True,
         ssl_require=True,
     )
@@ -192,13 +207,25 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     'x-cart-session',
 ]
 
-cors_raw = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173')
-CORS_ALLOWED_ORIGINS = [c.strip() for c in cors_raw.split(',') if c.strip()]
+default_cors_origins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'https://modi-e-commerce.onrender.com',
+]
+
+cors_raw = os.getenv('CORS_ALLOWED_ORIGINS', '')
+parsed_cors_origins = [c.strip() for c in cors_raw.split(',') if c.strip()]
+
+CORS_ALLOWED_ORIGINS = []
+for origin in default_cors_origins + parsed_cors_origins:
+    if origin and origin not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(origin)
 
 default_csrf_trusted = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
     'https://e-commere-backend.onrender.com',
+    'https://modi-e-commerce.onrender.com',
 ]
 if render_external_hostname and f"https://{render_external_hostname}" not in default_csrf_trusted:
     default_csrf_trusted.append(f"https://{render_external_hostname}")
@@ -231,5 +258,5 @@ PASSWORD_RESET_TIMEOUT = int(os.getenv('PASSWORD_RESET_TIMEOUT', 3600))
 # OTP Expiry & Rate Limiting Configuration
 EMAIL_OTP_EXPIRY_SECONDS = int(os.getenv('EMAIL_OTP_EXPIRY_SECONDS', 600))  # 10 minutes
 EMAIL_OTP_COOLDOWN_SECONDS = int(os.getenv('EMAIL_OTP_COOLDOWN_SECONDS', 60))  # 60 seconds
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173').rstrip('/')
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://modi-e-commerce.onrender.com' if IS_PRODUCTION else 'http://localhost:5173').rstrip('/')
 
