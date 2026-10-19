@@ -14,11 +14,19 @@ class ModiecommersBackendTests(TestCase):
         self.client = APIClient()
 
         # Create Admin
-        self.admin_user = User.objects.create_superuser(
+        self.admin_user, _ = User.objects.get_or_create(
             email='admin@modiecommers.com',
-            password='AdminPassword123!',
-            username='admin'
+            defaults={
+                'username': 'admin',
+                'is_staff': True,
+                'is_superuser': True,
+                'role': User.Role.ADMIN,
+                'is_verified': True,
+                'is_active': True,
+            }
         )
+        self.admin_user.set_password('AdminPassword123!')
+        self.admin_user.save()
 
         # Create Customers (verified for checkout/reviews)
         self.customer1 = User.objects.create_user(

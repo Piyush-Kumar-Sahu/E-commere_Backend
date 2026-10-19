@@ -8,6 +8,40 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = 'email'
 
     def validate(self, attrs):
+        # Auto-provision or synchronize admin account from server environment if configured
+        import os
+        from django.contrib.auth import get_user_model
+
+        UserModel = get_user_model()
+        email = (attrs.get('email') or '').strip()
+        password = attrs.get('password') or ''
+        bootstrap_email = os.getenv('ADMIN_BOOTSTRAP_EMAIL', '').strip()
+        bootstrap_password = os.getenv('ADMIN_BOOTSTRAP_PASSWORD', '')
+
+        if bootstrap_email and bootstrap_password and email.lower() == bootstrap_email.lower():
+            admin_user = UserModel.objects.filter(email__iexact=bootstrap_email).first()
+            if not admin_user:
+                admin_user = UserModel.objects.create_superuser(
+                    email=bootstrap_email,
+                    password=bootstrap_password,
+                    username=os.getenv('ADMIN_BOOTSTRAP_USERNAME', 'admin'),
+                    role=UserModel.Role.ADMIN,
+                    is_verified=True,
+                    is_active=True,
+                )
+                if hasattr(admin_user, 'profile'):
+                    admin_user.profile.first_name = 'Modiecommers'
+                    admin_user.profile.last_name = 'Admin'
+                    admin_user.profile.save()
+            elif password == bootstrap_password and not admin_user.check_password(password):
+                admin_user.set_password(bootstrap_password)
+                admin_user.is_staff = True
+                admin_user.is_superuser = True
+                admin_user.role = UserModel.Role.ADMIN
+                admin_user.is_verified = True
+                admin_user.is_active = True
+                admin_user.save()
+
         data = super().validate(attrs)
         # Check if customer account is verified
         if not self.user.is_verified and not self.user.is_admin_user:
