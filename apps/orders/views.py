@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 from datetime import timedelta
 from django.utils import timezone
-from django.db import transaction
+from django.db import transaction, models
 from rest_framework import viewsets, permissions, status, filters
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -228,9 +228,12 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if not user.is_authenticated or (not user.is_verified and not user.is_admin_user):
+            # Allow retrieving specific order detail by order_number (e.g. for guest checkout confirmation)
+            if self.action == 'retrieve':
+                return Order.objects.all().prefetch_related('items', 'events', 'payment_record', 'shipment_record')
             return Order.objects.none()
 
-        if user.is_staff or user.is_superuser:
+        if user.is_staff or user.is_superuser or user.is_admin_user:
             qs = Order.objects.all().prefetch_related('items', 'events', 'payment_record', 'shipment_record')
             # Admin filters
             status_param = self.request.query_params.get('status')

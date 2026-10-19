@@ -242,3 +242,63 @@ class ModiecommersBackendTests(TestCase):
         self.assertEqual(fast_resp.status_code, status.HTTP_200_OK)
         self.assertEqual(fast_resp.data['status'], 'ok')
         self.assertEqual(fast_resp.data['database'], 'skipped')
+
+    def test_order_search_and_models_q_filter(self):
+        # Verify that searching orders by query param uses models.Q without NameError crash
+        self.client.force_authenticate(user=self.admin_user)
+        resp = self.client.get('/api/v1/orders/?search=NONEXISTENT_QUERY')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    def test_guest_order_detail_retrieval(self):
+        # Create an order placed by customer or guest
+        order = Order.objects.create(
+            order_number='MOD-TEST-GUEST-01',
+            customer_email='guest@example.com',
+            customer_phone='+91 91234 56789',
+            customer_name='Guest User',
+            shipping_full_name='Guest User',
+            shipping_phone='+91 91234 56789',
+            shipping_street='10 Marine Drive',
+            shipping_city='Mumbai',
+            shipping_state='Maharashtra',
+            shipping_postal_code='400021',
+            subtotal_amount=Decimal('45000.00'),
+            total_amount=Decimal('45000.00')
+        )
+        # Unauthenticate client (simulate guest user)
+        self.client.force_authenticate(user=None)
+        resp = self.client.get(f'/api/v1/orders/{order.order_number}/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['order_number'], 'MOD-TEST-GUEST-01')
+
+    def test_product_detail_serializer_category_slug_and_name(self):
+        resp = self.client.get(f'/api/v1/catalogue/products/{self.product.slug}/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data.get('category_slug'), 'rings')
+        self.assertEqual(resp.data.get('category_name'), 'Rings')
+
+    def test_admin_role_permission_consistency(self):
+        # User with role=ADMIN but is_staff=False, is_superuser=False
+        custom_admin = User.objects.create_user(
+            email='customadmin@example.com',
+            password='AdminPassword123!',
+            username='customadmin',
+            role=User.Role.ADMIN,
+            is_staff=False,
+            is_superuser=False,
+            is_verified=True
+        )
+        self.client.force_authenticate(user=custom_admin)
+        resp = self.client.get('/api/v1/admin-ops/dashboard/stats/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertTrue(resp.data['success'])
+
+    def test_csv_export_query_param_token_authentication(self):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        jwt_token = str(RefreshToken.for_user(self.admin_user).access_token)
+        # Unauthenticate header and request with ?token= parameter
+        self.client.force_authenticate(user=None)
+        resp = self.client.get(f'/api/v1/admin-ops/export/orders-csv/?token={jwt_token}')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp['Content-Type'], 'text/csv')
+

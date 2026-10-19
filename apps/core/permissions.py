@@ -7,21 +7,21 @@ class IsAdminUserOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return bool(request.user and request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser))
+        return bool(request.user and request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser or getattr(request.user, 'is_admin_user', False)))
 
 class IsAdminRoleUser(permissions.BasePermission):
     """
     Allows access only to authenticated admin/staff users.
     """
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser))
+        return bool(request.user and request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser or getattr(request.user, 'is_admin_user', False)))
 
 class IsOwnerOrAdmin(permissions.BasePermission):
     """
     Custom permission to only allow owners of an object or admin users to access/edit it.
     """
     def has_object_permission(self, request, view, obj):
-        if request.user and (request.user.is_staff or request.user.is_superuser):
+        if request.user and (request.user.is_staff or request.user.is_superuser or getattr(request.user, 'is_admin_user', False)):
             return True
         # Check if obj has user attribute
         if hasattr(obj, 'user'):

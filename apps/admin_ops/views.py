@@ -109,6 +109,21 @@ class DashboardStatsView(APIView):
 class ExportOrdersCSVView(APIView):
     permission_classes = [IsAdminRoleUser]
 
+    def initial(self, request, *args, **kwargs):
+        # Support JWT token passed via query parameter if not provided in header
+        token = request.query_params.get('token')
+        if token and not (request.user and request.user.is_authenticated):
+            from rest_framework_simplejwt.authentication import JWTAuthentication
+            try:
+                jwt_auth = JWTAuthentication()
+                validated_token = jwt_auth.get_validated_token(token)
+                user = jwt_auth.get_user(validated_token)
+                if user:
+                    request.user = user
+            except Exception:
+                pass
+        super().initial(request, *args, **kwargs)
+
     def get(self, request):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="modiecommers_orders_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
@@ -143,6 +158,20 @@ class ExportOrdersCSVView(APIView):
 
 class ExportProductsCSVView(APIView):
     permission_classes = [IsAdminRoleUser]
+
+    def initial(self, request, *args, **kwargs):
+        token = request.query_params.get('token')
+        if token and not (request.user and request.user.is_authenticated):
+            from rest_framework_simplejwt.authentication import JWTAuthentication
+            try:
+                jwt_auth = JWTAuthentication()
+                validated_token = jwt_auth.get_validated_token(token)
+                user = jwt_auth.get_user(validated_token)
+                if user:
+                    request.user = user
+            except Exception:
+                pass
+        super().initial(request, *args, **kwargs)
 
     def get(self, request):
         response = HttpResponse(content_type='text/csv')

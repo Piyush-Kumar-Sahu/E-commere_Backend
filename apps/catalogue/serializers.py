@@ -93,6 +93,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(), source='category', write_only=True
     )
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    category_slug = serializers.CharField(source='category.slug', read_only=True)
     collection = CollectionSerializer(read_only=True)
     collection_id = serializers.PrimaryKeyRelatedField(
         queryset=Collection.objects.all(), source='collection', write_only=True, required=False, allow_null=True
@@ -112,11 +114,12 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'name', 'slug', 'sku', 'short_description', 'description',
             'base_price', 'sale_price', 'current_price', 'category', 'category_id',
-            'collection', 'collection_id', 'metal_type', 'metal_type_display',
-            'metal_purity', 'metal_purity_display', 'gemstone', 'weight_grams',
-            'dimensions', 'packaging_info', 'care_instructions', 'is_featured',
-            'is_new_arrival', 'is_bestseller', 'is_active', 'total_stock', 'is_in_stock',
-            'images', 'variants', 'average_rating', 'review_count', 'created_at', 'updated_at'
+            'category_name', 'category_slug', 'collection', 'collection_id',
+            'metal_type', 'metal_type_display', 'metal_purity', 'metal_purity_display',
+            'gemstone', 'weight_grams', 'dimensions', 'packaging_info', 'care_instructions',
+            'is_featured', 'is_new_arrival', 'is_bestseller', 'is_active', 'total_stock',
+            'is_in_stock', 'images', 'variants', 'average_rating', 'review_count',
+            'created_at', 'updated_at'
         )
 
     def get_average_rating(self, obj):
