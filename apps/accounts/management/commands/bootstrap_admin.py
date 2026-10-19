@@ -22,6 +22,8 @@ class Command(BaseCommand):
             user.is_staff = True
             user.is_superuser = True
             user.role = User.Role.ADMIN
+            user.is_verified = True
+            user.is_active = True
             user.save()
             self.stdout.write(self.style.SUCCESS(f'Updated existing admin account: {email}'))
         else:
@@ -31,6 +33,9 @@ class Command(BaseCommand):
                 username=username,
                 role=User.Role.ADMIN
             )
+            user.is_verified = True
+            user.is_active = True
+            user.save()
             if hasattr(user, 'profile'):
                 user.profile.first_name = 'Modiecommers'
                 user.profile.last_name = 'Admin'

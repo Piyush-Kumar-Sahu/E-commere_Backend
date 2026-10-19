@@ -142,6 +142,15 @@ DATABASES = {
     )
 }
 
+# If running automated tests, execute against in-memory SQLite to isolate and protect production/remote databases
+import sys
+if 'test' in sys.argv:
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': ':memory:',
+    }
+
+
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'
 
